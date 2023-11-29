@@ -6,20 +6,19 @@ import 'simplelightbox/dist/simple-lightbox.min.css';
 
 const error = {
   title: 'Error',
-  message: 'Oops! Something went wrong! Try reloading the page!',
+  message:
+    'Sorry, there are no images matching your search query. Please try again',
   position: 'topRight',
 };
 
 const info = {
   title: 'Info',
-  message:
-    'Sorry, there are no images matching your search query. Please try again.',
+  message: 'We`re sorry, but you`ve reached the end of search results.',
   position: 'topRight',
 };
 
 const success = {
   title: 'Success',
-  message: 'We`re sorry, but you`ve reached the end of search results.',
   position: 'topRight',
 };
 
@@ -38,15 +37,15 @@ let simpleLightBox;
 
 async function handlerLoadMore() {
   page += 1;
-
-  fetchImgs(search, page)
-    .then(({ hits, totalHits }) => {
-      createMarkup(hits);
-      getScroll();
-      simpleLightBox.refresh();
-      if (calcPage(totalHits)) return;
-    })
-    .catch(err => iziToast.error(error));
+  try {
+    const { hits, totalHits } = await fetchImgs(search, page);
+    createMarkup(hits);
+    getScroll();
+    simpleLightBox.refresh();
+    if (calcPage(totalHits)) return;
+  } catch (err) {
+    iziToast.error({ ...error, message: err.message });
+  }
 }
 
 async function handlerSearchImg(e) {
@@ -56,32 +55,32 @@ async function handlerSearchImg(e) {
   search = e.currentTarget.elements.searchQuery.value;
   page = 1;
 
-  if (!search) {
-    iziToast.info(info);
+  if (!search.trim()) {
+    iziToast.error({
+      ...error,
+      message: 'Sorry, input is required to search for images',
+    });
     return;
   }
 
-  fetchImgs(search, page)
-    .then(({ hits, totalHits }) => {
-      if (hits.length === 0) {
-        iziToast.info(info);
-        return;
-      }
-      iziToast.success({
-        ...success,
-        message: `Hooray! We found ${totalHits} images.`,
-      });
-      createMarkup(hits);
-      getScroll();
-      simpleLightBox = new SimpleLightbox('.gallery a').refresh();
-
-      if (calcPage(totalHits)) return;
-      hiddenBtn(false);
-    })
-    .catch(err => {
+  try {
+    const { hits, totalHits } = await fetchImgs(search, page);
+    if (hits.length === 0) {
       iziToast.error(error);
-      refs.gallery.innerHTML = '';
+      return;
+    }
+    iziToast.success({
+      ...success,
+      message: `Hooray! We found ${totalHits} images.`,
     });
+    createMarkup(hits);
+    simpleLightBox = new SimpleLightbox('.gallery a').refresh();
+
+    if (calcPage(totalHits)) return;
+    hiddenBtn(false);
+  } catch (err) {
+    iziToast.error({ ...error, message: err.message });
+  }
 }
 
 function createMarkup(images) {
@@ -134,7 +133,7 @@ function hiddenBtn(bool) {
 function calcPage(totalHits) {
   const allPages = Math.ceil(totalHits / 40);
   if (page >= allPages) {
-    iziToast.success(success);
+    iziToast.info(info);
     hiddenBtn(true);
     return true;
   }
@@ -146,7 +145,7 @@ function getScroll() {
     .firstElementChild.getBoundingClientRect();
 
   window.scrollBy({
-    top: cardHeight * 6,
+    top: cardHeight * 3,
     behavior: 'smooth',
   });
 }
